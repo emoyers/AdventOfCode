@@ -50,6 +50,13 @@ fn main () -> std::io::Result<()> {
     //Create a buffered reader to read the file
     let reader = BufReader::new(file);
 
+    let mut digits_dictionary = Trie::new();
+    let helper = HelperWordsToDigit::new();
+    helper.init_digit_dictionary(&mut digits_dictionary);
+
+    print!("Just for testing, remove it after done. {:?} \n", digits_dictionary.search("three")); // TODO remove this
+    print!("Just for testing, remove it after done. {} \n", helper.word_to_digit("eerht").unwrap());
+    
     let mut first_digit:u32 = 0;
     let mut last_digit:u32 = 0;
     let mut total_sum:u32 = 0;
@@ -76,5 +83,110 @@ fn main () -> std::io::Result<()> {
 
     println! ("The result of the puzzle is: {total_sum} !!!!");
 
+
     Ok(())
+}
+
+use std::collections::HashMap;
+struct HelperWordsToDigit<'a>
+{
+    words: Vec<&'a str>,
+    map_word_to_digit: HashMap<String, u32>
+}
+
+impl<'a> HelperWordsToDigit<'a> {
+
+    fn new() -> HelperWordsToDigit<'a> {
+        
+        let temp_vec = vec!["zero", "one", "two", "three", 
+            "four", "five", "six", "seven", "eight", "nine", "orez", "eno", "owt", 
+            "eerht", "rouf", "evif", "xis", "neves", "thgie", "enin"];
+        let mut temp_map: HashMap<String, u32> = HashMap::new();
+
+        let mut counter = 0;
+        for w in &temp_vec {
+            temp_map.insert(w.to_string(), counter);
+            counter = (counter + 1) % 10;
+        }
+        
+        HelperWordsToDigit {
+            words: temp_vec,
+            map_word_to_digit: temp_map
+        }
+    }
+
+    fn init_digit_dictionary(&self, dicitionary: &mut Trie) {
+
+        for w in &self.words  {
+            dicitionary.insert(w);
+        }
+    }
+
+    fn word_to_digit(&self, word: &str) -> Option<&u32>{
+        self.map_word_to_digit.get(word)
+    }
+}
+
+#[derive(Default, Debug)]
+struct TrieNode {
+    is_end_word: bool,
+    children: HashMap<char, TrieNode>
+}
+
+impl TrieNode {
+    fn new() -> Self {
+
+        TrieNode {
+            is_end_word: false,
+            children: HashMap::new(),
+        }
+    }
+}
+
+#[derive(Debug)]
+enum TrieSearchResult {
+    CanContinue,
+    WordFound,
+    NotFound
+}
+
+#[derive(Default, Debug)]
+struct Trie {
+    root: TrieNode
+}
+
+impl Trie {
+
+    fn new() -> Self {
+        Trie {
+            root: TrieNode::new()
+        }
+    }
+    
+    fn insert(&mut self, word: &str) {
+        let mut current_node: &mut TrieNode = &mut self.root;
+
+        for c in word.chars() {
+            current_node = current_node.children.entry(c).or_default();
+        }
+        current_node.is_end_word = true;
+    }
+
+    fn search (& self, word: &str) -> TrieSearchResult {
+        let mut current_node = &self.root;
+
+        for c in word.chars() {
+            match current_node.children.get(&c) {
+                Some(node) => current_node = node,
+                None => return TrieSearchResult::NotFound,
+            }
+        }
+
+        if current_node.is_end_word {
+            return TrieSearchResult::WordFound;
+        }
+        else {
+            return TrieSearchResult::CanContinue;
+        }
+    }
 }
