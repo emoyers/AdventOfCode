@@ -1,5 +1,6 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader};
+use std::collections::HashMap;
 /*
 --- Day 1: Trebuchet?! ---
 Something is wrong with global snow production, and you've been selected to take a look. The Elves have even given you a map; on it, they've used stars to mark the top fifty locations that are likely to be having problems.
@@ -42,8 +43,21 @@ In this example, the calibration values are 29, 83, 13, 24, 42, 14, and 76. Addi
 
 What is the sum of all of the calibration values?
 */
+#[derive(Debug)]
+enum TypeRun {
+    FirstPart,
+    SecondPart
+}
 
 fn main () -> std::io::Result<()> {
+    algorithm(TypeRun::FirstPart)?;
+    algorithm(TypeRun::SecondPart)?;
+
+    Ok(())
+}
+
+fn algorithm (type_run: TypeRun) -> std::io::Result<()>
+{
     // Open the file for reading
     let file = File::open("data/calibration_document.txt")?;
 
@@ -53,41 +67,68 @@ fn main () -> std::io::Result<()> {
     let mut digits_dictionary = Trie::new();
     let helper = HelperWordsToDigit::new();
     helper.init_digit_dictionary(&mut digits_dictionary);
-
-    print!("Just for testing, remove it after done. {:?} \n", digits_dictionary.search("three")); // TODO remove this
-    print!("Just for testing, remove it after done. {} \n", helper.word_to_digit("eerht").unwrap());
     
-    let mut first_digit:u32 = 0;
-    let mut last_digit:u32 = 0;
     let mut total_sum:u32 = 0;
     // Read the file line by line
     for line in reader.lines() {
-        let chars:Vec<char> = line?.chars().collect();
+        let line_string = line?;
+        let line_string_reverse: String = line_string.chars().rev().collect();
+        let chars:Vec<char> = line_string.chars().collect();
 
-        for c in &chars {
+        for (i, c) in chars.iter().enumerate() {
             if c.is_digit(10) {
-                first_digit = c.to_digit(10).expect("Cannot convert char to digit");
+                total_sum += 10 * c.to_digit(10).expect("Cannot convert char to digit");
                 break;
+            }
+            else {
+                if matches!(type_run, TypeRun::SecondPart) {
+                    // Try searching for number name
+                    let (result, word_len) = digits_dictionary.search(&line_string[i..]);
+                    if matches!(result, TrieSearchResult::WordFoundExactMatch) || 
+                    matches!(result, TrieSearchResult::WordFoundButNeedCropping) {
+                        match helper.word_to_digit(&line_string[i..i+word_len]){
+                            Some(number) => {
+                                total_sum  += 10 * number;
+                                break;
+                            }
+                            None => {}
+                        }
+                    }
+                }
             }
         }
 
-        for c in chars.iter().rev() {
+        for (i, c) in chars.iter().rev().enumerate() {
             if c.is_digit(10) {
-                last_digit = c.to_digit(10).expect("Cannot convert char to digit");
+                total_sum += c.to_digit(10).expect("Cannot convert char to digit");
                 break;
             }
+            else {
+                if matches!(type_run, TypeRun::SecondPart) {
+                    // Try searching for number name
+                    let (result, word_len) = digits_dictionary.search(&line_string_reverse[i..]);
+                    if matches!(result, TrieSearchResult::WordFoundExactMatch) || 
+                    matches!(result, TrieSearchResult::WordFoundButNeedCropping) {
+                        match helper.word_to_digit(&line_string_reverse[i..i+word_len]){
+                            Some(number) => {
+                                total_sum  += number;
+                                break;
+                            }
+                            None => {}
+                        }
+                    }
+                }
+            }
+            
         }
-
-        total_sum += first_digit * 10 + last_digit;
     }
 
-    println! ("The result of the puzzle is: {total_sum} !!!!");
+    println! ("The result of the {:?} of the puzzle is: {total_sum} !!!!", type_run);
 
 
     Ok(())
 }
 
-use std::collections::HashMap;
 struct HelperWordsToDigit<'a>
 {
     words: Vec<&'a str>,
@@ -100,7 +141,7 @@ impl<'a> HelperWordsToDigit<'a> {
         
         let temp_vec = vec!["zero", "one", "two", "three", 
             "four", "five", "six", "seven", "eight", "nine", "orez", "eno", "owt", 
-            "eerht", "rouf", "evif", "xis", "neves", "thgie", "enin"];
+            "eerht", "ruof", "evif", "xis", "neves", "thgie", "enin"];
         let mut temp_map: HashMap<String, u32> = HashMap::new();
 
         let mut counter = 0;
@@ -145,8 +186,8 @@ impl TrieNode {
 
 #[derive(Debug)]
 enum TrieSearchResult {
-    CanContinue,
-    WordFound,
+    WordFoundButNeedCropping,
+    WordFoundExactMatch,
     NotFound
 }
 
@@ -172,21 +213,34 @@ impl Trie {
         current_node.is_end_word = true;
     }
 
-    fn search (& self, word: &str) -> TrieSearchResult {
+    fn search (& self, word: &str) -> (TrieSearchResult, usize) {
         let mut current_node = &self.root;
 
-        for c in word.chars() {
+        for (i, c) in word.chars().enumerate() {
             match current_node.children.get(&c) {
-                Some(node) => current_node = node,
-                None => return TrieSearchResult::NotFound,
+                Some(node) => {
+                    if node.is_end_word{
+                        
+                        if i == (word.len() - 1) {
+                            return (TrieSearchResult::WordFoundExactMatch, word.len());
+                        }
+                        else {
+                            return (TrieSearchResult::WordFoundButNeedCropping, i+1);
+                        }
+                    }
+
+                    current_node = node;
+                },
+                None => return (TrieSearchResult::NotFound, 0),
             }
         }
-
+        
         if current_node.is_end_word {
-            return TrieSearchResult::WordFound;
+            return (TrieSearchResult::WordFoundExactMatch, word.len());
         }
         else {
-            return TrieSearchResult::CanContinue;
+            return (TrieSearchResult::NotFound, 0);
         }
     }
+    
 }
