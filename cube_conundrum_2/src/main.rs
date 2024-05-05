@@ -47,6 +47,7 @@
 
 use std::fs::File;
 use std::io::{BufRead, BufReader};
+use std::cmp;
 
 const MAX_RED: u32 = 12;
 const MAX_GREEN: u32 = 13;
@@ -54,12 +55,13 @@ const MAX_BLUE: u32 = 14;
 
 #[derive(Debug)]
 enum TypeRun {
-    FirstPart
+    FirstPart,
+    SecondPart
 }
 
 fn main() -> std::io::Result<()> {
     algorithm(TypeRun::FirstPart)?;
-
+    algorithm(TypeRun::SecondPart)?;
     Ok(())
 }
 
@@ -71,22 +73,27 @@ fn algorithm(type_run: TypeRun) -> std::io::Result<()>
     //Create a buffered reader to read the file
     let reader = BufReader::new(file);
 
-    let mut sum_games_id: u32 = 0;
+    let mut sum_games: u32 = 0;
     // Read the file line by line
     for line in reader.lines() {
         
-        let (possible, id) = parse_line (&line?);
-        if possible {
-            sum_games_id += id;
+        if matches!(type_run,TypeRun::FirstPart) {
+            let (possible, id) = parse_line_first_part (&line?);
+            if possible {
+                sum_games += id;
+            }
+        }
+        else {
+            sum_games += parse_line_second_part(&line?);
         }
     }
 
-    println!("The sum of the possible games for {:?} is {}", type_run, sum_games_id);
+    println!("The sum of the possible games for {:?} is {}", type_run, sum_games);
 
     Ok(())
 }
 
-fn parse_line(game_str: &str) -> (bool, u32){
+fn parse_line_first_part(game_str: &str) -> (bool, u32){
 
     let mut possible_game = true;
     
@@ -94,7 +101,7 @@ fn parse_line(game_str: &str) -> (bool, u32){
     let parts: Vec<&str> = game_info[0].trim().split_whitespace().collect();
     let game_id:u32 = parts[1].parse::<u32>().expect("not a number");
 
-    // Remove "Game 79: " from the string
+    // Remove "Game xx: " from the string
     let color_data: &str = game_info[1];
 
     // Split the string into rounds
@@ -135,4 +142,45 @@ fn parse_line(game_str: &str) -> (bool, u32){
     }
 
     (possible_game, game_id)
+}
+
+fn parse_line_second_part(game_str: &str) -> u32 {
+    
+    let game_info: Vec<&str> = game_str.split(':').collect();
+
+    // Remove "Game xx: " from the string
+    let color_data: &str = game_info[1];
+
+    // Split the string into rounds
+    let rounds: Vec<&str> = color_data.split(';').collect();
+
+    let mut max_red: u32= 0;
+    let mut max_green: u32= 0;
+    let mut max_blue: u32= 0;
+
+    for round in rounds.iter() {
+        // Split the round into color counts
+        let color_counts: Vec<&str> = round.split(',').collect();
+        
+        for color_count in color_counts {
+            // Split the color count into count and color
+            let parts: Vec<&str> = color_count.trim().split_whitespace().collect();
+            let ball_numbers: u32 = parts[0].parse::<u32>().expect("not a number to convert");
+            match parts[1] {
+                "red" => {
+                    max_red = cmp::max(ball_numbers, max_red);
+                },
+                "green" => {
+                    max_green = cmp::max(ball_numbers, max_green);
+                },
+                "blue" => {
+                    max_blue = cmp::max(ball_numbers, max_blue);
+                },
+                _ => {}
+
+            } 
+        }
+    }
+
+    return max_red*max_green*max_blue;
 }
