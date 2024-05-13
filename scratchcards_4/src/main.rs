@@ -31,7 +31,95 @@
 // So, in this example, the Elf's pile of scratchcards is worth 13 points.
 
 // Take a seat in the large pile of colorful cards. How many points are they worth in total?
+use std::fs::File;
+use std::io::{BufReader, BufRead};
 
-fn main() {
-    println!("Hello, world!");
+#[derive(Debug)]
+enum TypeRun {
+    FirstPart,
+    SecondPart
+}
+
+fn main() -> std::io::Result<()>
+{
+    algorithm(TypeRun::FirstPart)?;
+    // algorithm(TypeRun::SecondPart)?;
+
+    Ok(()) 
+}
+
+fn algorithm (type_run: TypeRun) -> std::io::Result<()> 
+{
+    // Open the file for reading
+    let file: File = File::open("data/input.txt")?;
+
+    // Create a buffered reader to read the file
+    let reader = BufReader::new(file);
+
+
+    let mut total_sum: u32 = 0;
+
+    for line in reader.lines() {
+
+        let line_string =  line?;
+        let card_info: Vec<&str> = line_string.split(':').collect();
+        let numbers_string: Vec<&str> = card_info[1].split('|').collect();
+
+        let mut winning_numbers = get_vector_numbers(numbers_string[0]);
+        let mut selected_numbers = get_vector_numbers(numbers_string[1]);
+
+        winning_numbers.sort();
+        selected_numbers.sort();
+
+        let match_numbers = get_number_match_numbers(&winning_numbers, &selected_numbers);
+        
+        total_sum += if match_numbers > 0 {2_u32.pow(match_numbers-1)} else {0};
+    }
+
+
+    println!("The total sum for the quest for the {:?} is: {total_sum}", type_run);
+
+    Ok(())
+}
+
+fn get_vector_numbers(string_numbers: &str) -> Vec<u32>
+{
+    let mut numbers: Vec<u32> = Vec::new();
+
+    let string_numbers:Vec<&str> = string_numbers.split_whitespace().collect();
+
+    for str_num in string_numbers{
+
+        match str_num.parse::<u32>()  {
+            Ok(num) => numbers.push(num),
+            Err(_) => println!("Could not convert {} to u32", str_num),
+        }
+    }
+
+    numbers
+}
+
+fn get_number_match_numbers(winning_numbers: &Vec<u32>, selected_numbers: &Vec<u32>) -> u32
+{
+    let mut index_winning: usize = 0;
+    let mut index_selected: usize = 0;
+
+    let mut match_numbers: u32 = 0;
+
+    while index_winning < winning_numbers.len() && index_selected < selected_numbers.len() {
+
+        if winning_numbers[index_winning] == selected_numbers[index_selected]{
+            match_numbers += 1;
+            index_selected += 1;
+            index_winning += 1;
+        }
+        else if winning_numbers[index_winning] < selected_numbers[index_selected] {
+            index_winning += 1;
+        }
+        else{
+            index_selected +=1;
+        }
+    }
+    
+    match_numbers
 }
