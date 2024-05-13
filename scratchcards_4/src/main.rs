@@ -31,8 +31,39 @@
 // So, in this example, the Elf's pile of scratchcards is worth 13 points.
 
 // Take a seat in the large pile of colorful cards. How many points are they worth in total?
+
+// --- Part Two ---
+// Just as you're about to report your findings to the Elf, one of you realizes that the rules have actually been printed on the back of every card this whole time.
+
+// There's no such thing as "points". Instead, scratchcards only cause you to win more scratchcards equal to the number of winning numbers you have.
+
+// Specifically, you win copies of the scratchcards below the winning card equal to the number of matches. So, if card 10 were to have 5 matching numbers, you would win one copy each of cards 11, 12, 13, 14, and 15.
+
+// Copies of scratchcards are scored like normal scratchcards and have the same card number as the card they copied. So, if you win a copy of card 10 and it has 5 matching numbers, it would then win a copy of the same cards that the original card 10 won: cards 11, 12, 13, 14, and 15. This process repeats until none of the copies cause you to win any more cards. (Cards will never make you copy a card past the end of the table.)
+
+// This time, the above example goes differently:
+
+// Card 1: 41 48 83 86 17 | 83 86  6 31 17  9 48 53
+// Card 2: 13 32 20 16 61 | 61 30 68 82 17 32 24 19
+// Card 3:  1 21 53 59 44 | 69 82 63 72 16 21 14  1
+// Card 4: 41 92 73 84 69 | 59 84 76 51 58  5 54 83
+// Card 5: 87 83 26 28 32 | 88 30 70 12 93 22 82 36
+// Card 6: 31 18 13 56 72 | 74 77 10 23 35 67 36 11
+// Card 1 has four matching numbers, so you win one copy each of the next four cards: cards 2, 3, 4, and 5.
+// Your original card 2 has two matching numbers, so you win one copy each of cards 3 and 4.
+// Your copy of card 2 also wins one copy each of cards 3 and 4.
+// Your four instances of card 3 (one original and three copies) have two matching numbers, so you win four copies each of cards 4 and 5.
+// Your eight instances of card 4 (one original and seven copies) have one matching number, so you win eight copies of card 5.
+// Your fourteen instances of card 5 (one original and thirteen copies) have no matching numbers and win no more cards.
+// Your one instance of card 6 (one original) has no matching numbers and wins no more cards.
+// Once all of the originals and copies have been processed, you end up with 1 instance of card 1, 2 instances of card 2, 4 instances of card 3, 8 instances of card 4, 14 instances of card 5, and 1 instance of card 6. In total, this example pile of scratchcards causes you to ultimately have 30 scratchcards!
+
+// Process all of the original and copied scratchcards until no more scratchcards are won. Including the original set of scratchcards, how many total scratchcards do you end up with?
+
 use std::fs::File;
 use std::io::{BufReader, BufRead};
+use std::str::FromStr;
+use std::collections::VecDeque;
 
 #[derive(Debug)]
 enum TypeRun {
@@ -40,10 +71,36 @@ enum TypeRun {
     SecondPart
 }
 
+struct Card {
+    winning_numbers: Vec<u32>,
+    selected_numbers: Vec<u32>,
+}
+
+impl std::str::FromStr for Card {
+    type Err = std::num::ParseIntError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let numbers_string: Vec<&str> = s.split('|').collect();
+
+        let wining_numbers: Vec<u32> = numbers_string[0].split_whitespace()
+            .map(|num| num.parse::<u32>())
+            .collect::<Result<Vec<_>, _>>()?;
+        
+        let selected_numbers: Vec<u32> = numbers_string[1].split_whitespace()
+            .map(|num| num.parse::<u32>())
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(Card {
+            winning_numbers: wining_numbers,
+            selected_numbers: selected_numbers,
+        })
+    }
+}
+
 fn main() -> std::io::Result<()>
 {
     algorithm(TypeRun::FirstPart)?;
-    // algorithm(TypeRun::SecondPart)?;
+    algorithm(TypeRun::SecondPart)?;
 
     Ok(()) 
 }
@@ -59,21 +116,69 @@ fn algorithm (type_run: TypeRun) -> std::io::Result<()>
 
     let mut total_sum: u32 = 0;
 
+    let mut scratchcards_q: VecDeque<u32> = VecDeque::new();
+
     for line in reader.lines() {
 
         let line_string =  line?;
-        let card_info: Vec<&str> = line_string.split(':').collect();
-        let numbers_string: Vec<&str> = card_info[1].split('|').collect();
+        let card_info_s: Vec<&str> = line_string.split(':').collect();
 
-        let mut winning_numbers = get_vector_numbers(numbers_string[0]);
-        let mut selected_numbers = get_vector_numbers(numbers_string[1]);
-
-        winning_numbers.sort();
-        selected_numbers.sort();
-
-        let match_numbers = get_number_match_numbers(&winning_numbers, &selected_numbers);
+        let mut card_info : Card;
         
-        total_sum += if match_numbers > 0 {2_u32.pow(match_numbers-1)} else {0};
+        match Card::from_str(card_info_s[1]) {
+            Ok(c) => card_info = c,
+            Err(_) => {
+                return Err(std::io::Error::new(std::io::ErrorKind::Other, 
+                    "Could not convert string into card :(")); 
+            },
+        }
+
+        card_info.winning_numbers.sort();
+        card_info.selected_numbers.sort();
+
+        let match_numbers = get_number_match_numbers(&card_info);
+        
+        if matches!(type_run, TypeRun::FirstPart){
+            total_sum += if match_numbers > 0 {2_u32.pow(match_numbers-1)} else {0};
+        }
+        else {
+
+            if scratchcards_q.is_empty(){
+
+                // This part is in case the are not previous copies won from the current card
+                for _ in 0 .. match_numbers {
+                    scratchcards_q.push_back(1);
+                }
+
+                total_sum += 1;
+            }
+            else {
+                // This part is in case the are previous copies won from the current card
+
+                // Read the previous won card and add (+1) the default one you have
+                let num_scratchcards_current_card:u32 = scratchcards_q.get(0).unwrap() + 1;
+
+                // Remove the count of card won from the current card
+                scratchcards_q.pop_front();
+
+                total_sum += num_scratchcards_current_card;
+
+                // Add the the accumulative won cards +1 to the next cards equal to the match numbers
+                for i in 0 .. match_numbers{
+
+                    if i < scratchcards_q.len().try_into().unwrap() {
+                        if let Some(elem) = scratchcards_q.get_mut(i.try_into().unwrap()) {
+                            *elem += num_scratchcards_current_card;
+                        }
+                    }
+                    else {
+                        scratchcards_q.push_back(num_scratchcards_current_card);
+                    }
+
+                }
+            }
+        }
+
     }
 
 
@@ -82,38 +187,21 @@ fn algorithm (type_run: TypeRun) -> std::io::Result<()>
     Ok(())
 }
 
-fn get_vector_numbers(string_numbers: &str) -> Vec<u32>
-{
-    let mut numbers: Vec<u32> = Vec::new();
-
-    let string_numbers:Vec<&str> = string_numbers.split_whitespace().collect();
-
-    for str_num in string_numbers{
-
-        match str_num.parse::<u32>()  {
-            Ok(num) => numbers.push(num),
-            Err(_) => println!("Could not convert {} to u32", str_num),
-        }
-    }
-
-    numbers
-}
-
-fn get_number_match_numbers(winning_numbers: &Vec<u32>, selected_numbers: &Vec<u32>) -> u32
+fn get_number_match_numbers(card_info: &Card) -> u32
 {
     let mut index_winning: usize = 0;
     let mut index_selected: usize = 0;
 
     let mut match_numbers: u32 = 0;
 
-    while index_winning < winning_numbers.len() && index_selected < selected_numbers.len() {
+    while index_winning < card_info.winning_numbers.len() && index_selected < card_info.selected_numbers.len() {
 
-        if winning_numbers[index_winning] == selected_numbers[index_selected]{
+        if card_info.winning_numbers[index_winning] == card_info.selected_numbers[index_selected]{
             match_numbers += 1;
             index_selected += 1;
             index_winning += 1;
         }
-        else if winning_numbers[index_winning] < selected_numbers[index_selected] {
+        else if card_info.winning_numbers[index_winning] < card_info.selected_numbers[index_selected] {
             index_winning += 1;
         }
         else{
