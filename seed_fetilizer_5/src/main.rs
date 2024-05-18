@@ -91,8 +91,115 @@
 // Seed 13, soil 13, fertilizer 52, water 41, light 34, temperature 34, humidity 35, location 35.
 // So, the lowest location number in this example is 35.
 
-// What is the lowest location number that corresponds to any of the initial seed numbers?
+// --- Part Two ---
+// Everyone will starve if you only plant such a small number of seeds. Re-reading the almanac, it looks like the seeds: line actually describes ranges of seed numbers.
 
-fn main() {
-    println!("Hello, world!");
+// The values on the initial seeds: line come in pairs. Within each pair, the first value is the start of the range and the second value is the length of the range. So, in the first line of the example above:
+
+// seeds: 79 14 55 13
+// This line describes two ranges of seed numbers to be planted in the garden. The first range starts with seed number 79 and contains 14 values: 79, 80, ..., 91, 92. The second range starts with seed number 55 and contains 13 values: 55, 56, ..., 66, 67.
+
+// Now, rather than considering four seed numbers, you need to consider a total of 27 seed numbers.
+
+// In the above example, the lowest location number can be obtained from seed number 82, which corresponds to soil 84, fertilizer 84, water 84, light 77, temperature 45, humidity 46, and location 46. So, the lowest location number is 46.
+
+// Consider all of the initial seed numbers listed in the ranges on the first line of the almanac. What is the lowest location number that corresponds to any of the initial seed numbers?
+
+
+use std::fs::File;
+use std::io::{BufReader, BufRead};
+use std::collections::HashMap;
+use std::u64::MAX;
+
+use crate::algorithms::{first_part::SeedsDB,
+                        second_part::SeedsDBRanges, 
+                        common::SeedsListType};
+
+pub mod algorithms;
+
+#[derive(Debug)]
+enum TypeRun {
+    FirstPart,
+    SecondPart
+}
+
+fn main() -> std::io::Result<()>{
+    algorithm(TypeRun::FirstPart)?;
+    algorithm(TypeRun::SecondPart)?;
+
+    Ok(())
+}
+
+fn algorithm(type_run: TypeRun) -> std::io::Result<()>
+{
+    // Open the file for reading
+    let file: File = File::open("data/input.txt")?;
+
+    // Create a buffered reader to read the file
+    let reader: BufReader<File> = BufReader::new(file);
+
+    let mut seed_data_part_1: SeedsDB = SeedsDB::new();
+    let mut seed_data_part_2: SeedsDBRanges = SeedsDBRanges::new();
+
+    let mut map_text_to_map_type: HashMap<String, SeedsListType> = HashMap::new();
+    map_text_to_map_type.insert("seed-to-soil".to_string(), SeedsListType::SeedToSoil);
+    map_text_to_map_type.insert("soil-to-fertilizer".to_string(), SeedsListType::SoilToFertilizer);
+    map_text_to_map_type.insert("fertilizer-to-water".to_string(), SeedsListType::FertilizerToWater);
+    map_text_to_map_type.insert("water-to-light".to_string(), SeedsListType::WaterToLight);
+    map_text_to_map_type.insert("light-to-temperature".to_string(), SeedsListType::LightToTemperature);
+    map_text_to_map_type.insert("temperature-to-humidity".to_string(), SeedsListType::TemperatureToHumidity);
+    map_text_to_map_type.insert("humidity-to-location".to_string(), SeedsListType::HumidityToLocation);
+
+    let mut in_data_state_flag: bool = false;
+    let mut current_map_to_fill: &SeedsListType = &SeedsListType::SeedToSoil;
+    for (i, line) in reader.lines().enumerate() {
+
+        let line_str = line?;
+
+        if i == 0 {
+            
+            let _ =match type_run {
+                TypeRun::FirstPart => seed_data_part_1.init_seed_vector(&line_str),
+                TypeRun::SecondPart => seed_data_part_2.init_seed_vector(&line_str),
+            };
+            continue;
+        }
+
+        if in_data_state_flag && line_str.is_empty(){
+            in_data_state_flag = false;
+            continue;
+        }
+
+        if !in_data_state_flag {
+
+            for (key,val) in &map_text_to_map_type {
+                if line_str.contains(key) {
+                    in_data_state_flag = true;
+                    current_map_to_fill = val;
+                    break;
+                }
+            }
+
+            if in_data_state_flag {continue};
+        }
+
+        if in_data_state_flag {
+            let _ =match type_run {
+                TypeRun::FirstPart => seed_data_part_1.populate_map_based_on_type(current_map_to_fill, &line_str),
+                TypeRun::SecondPart => seed_data_part_2.populate(current_map_to_fill, &line_str),
+            };
+        }
+    }
+
+    let mut _min_location: u64 = MAX;
+
+    match type_run {
+        TypeRun::FirstPart => _min_location = seed_data_part_1.get_minimum_location(),
+        TypeRun::SecondPart => _min_location = seed_data_part_2.get_minimum_location(),
+    }
+    
+
+    println!("The lowest location number that corresponds to initial seed for {:?} is {_min_location}", type_run);
+
+    Ok(())
 }
