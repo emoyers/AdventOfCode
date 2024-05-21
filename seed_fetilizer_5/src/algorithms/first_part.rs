@@ -1,24 +1,9 @@
-use crate::algorithms::{common::SeedsListType, error::SeedsDBError};
+use crate::algorithms::{
+    common::SeedRangeInfo,
+    common::SeedsListType, 
+    error::SeedsDBError};
 use std::cmp::min;
 use std::u64::MAX;
-
-struct SeedRangeInfo {
-    start_source_index: u64,
-    end_source_index: u64,
-    start_destination_index: u64,
-}
-
-impl SeedRangeInfo {
-    
-    fn new(start_source:u64, end_source:u64, start_dest:u64) -> Self
-    {
-        SeedRangeInfo {
-            start_source_index: start_source,
-            end_source_index: end_source,
-            start_destination_index: start_dest,
-        }
-    } 
-}
 
 pub struct SeedsDB {
 

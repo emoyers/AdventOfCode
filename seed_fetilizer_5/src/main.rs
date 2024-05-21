@@ -186,7 +186,7 @@ fn algorithm(type_run: TypeRun) -> std::io::Result<()>
         if in_data_state_flag {
             let _ =match type_run {
                 TypeRun::FirstPart => seed_data_part_1.populate_map_based_on_type(current_map_to_fill, &line_str),
-                TypeRun::SecondPart => seed_data_part_2.populate(current_map_to_fill, &line_str),
+                TypeRun::SecondPart => seed_data_part_2.populate_map_based_on_type(current_map_to_fill, &line_str),
             };
         }
     }
