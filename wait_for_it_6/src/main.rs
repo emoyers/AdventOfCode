@@ -40,7 +40,148 @@
 
 // Determine the number of ways you could beat the record in each race. What do you get if you multiply these numbers together?
 
+use std::fs::File;
+use std::io::{BufRead, BufReader};
 
-fn main() {
-    println!("Hello, world!");
+#[derive(Debug)]
+enum TypeRun {
+    FirstPart,
+    SecondPart
+}
+
+struct BoatRaceDb {
+    times: Vec<u32>,
+    distances: Vec<u32>,
+}
+
+impl BoatRaceDb {
+
+    fn new () -> Self {
+
+        BoatRaceDb {
+            times: Vec::new(),
+            distances: Vec::new(),
+        }
+    }
+
+    fn populate_times_like_vector(&mut self, times_info_str: &str) {
+        let data: Vec<&str> = times_info_str.split(':').collect();
+        match data[1].split_whitespace().map(|num| 
+            num.parse::<u32>()).collect::<Result<Vec<_>, _>>() { 
+                Ok(numbers) => self.times.extend(numbers) ,
+                Err(_) => println!("not able to transform string to times :("),
+            
+        }
+    }
+
+    fn populates_distances_like_vector(&mut self, distances_info_str: &str) {
+        let data: Vec<&str> = distances_info_str.split(':').collect();
+        match data[1].split_whitespace().map(|num| 
+            num.parse::<u32>()).collect::<Result<Vec<_>, _>>() { 
+                Ok(numbers) => self.distances.extend(numbers) ,
+                Err(_) => println!("not able to transform string to distances :("),
+            
+        }
+    }
+
+    fn get_number_of_ways(&self) -> u32 {
+
+        let mut number_of_ways: u32 = 1;
+        
+        for (i, time) in self.times.iter().enumerate() {
+
+            number_of_ways *= BoatRaceDb::get_margin(*time, self.distances[i]);
+        }
+
+        number_of_ways
+    }
+
+    fn get_margin(time: u32, distance_to_beat: u32) -> u32
+    {
+        let lower_limit_inclusive = BoatRaceDb::get_lower_limit(time, distance_to_beat);
+        let upper_limit_inclusive = BoatRaceDb::get_upper_limit(time,lower_limit_inclusive);
+
+        upper_limit_inclusive - lower_limit_inclusive 
+    }
+
+    fn get_lower_limit(time: u32, distance_to_beat: u32) -> u32 
+    {
+        BoatRaceDb::binary_search(0, time, distance_to_beat)
+    }
+
+    fn get_upper_limit(time: u32, lower_bound_time:u32) -> u32 
+    {
+        time - lower_bound_time + 1
+    }
+
+    fn binary_search(mut low_time: u32, mut high_time: u32, target_distance: u32) -> u32 {
+
+        let mut mid_time: u32;
+        let mut distance_calculated: u32;
+        let max_time = high_time;
+
+        while low_time <= high_time{
+            mid_time = low_time + (high_time - low_time) / 2;
+            distance_calculated = BoatRaceDb::calculate_distance(mid_time, max_time);
+
+            // If x greater, ignore left half
+            if distance_calculated < target_distance {
+                low_time = mid_time + 1;
+            }
+
+            // If x is smaller, ignore right half
+            else{
+
+                if mid_time == 0 {
+                    return mid_time;
+                }
+                else if BoatRaceDb::calculate_distance(mid_time-1, max_time) <= target_distance{
+                    return mid_time;
+                }
+                else {
+                    high_time = mid_time - 1;
+                }
+            }
+        }
+
+        // If we reach here, then element was not present
+        0
+    }
+
+    fn calculate_distance(time_pressed_button:u32, max_time:u32) -> u32{
+        (max_time - time_pressed_button) * time_pressed_button
+    }
+}
+
+fn main () -> std::io::Result<()> {
+    algorithm(TypeRun::FirstPart)?;
+
+    Ok(())
+}
+
+fn algorithm(type_run: TypeRun) -> std::io::Result<()>{
+
+    // Open the file for reading
+    let file: File = File::open("data/input.txt")?;
+
+    // Create a buffered reader to read the file
+    let reader: BufReader<File> = BufReader::new(file);
+
+    let mut boat_race_db = BoatRaceDb::new();
+
+    for line in reader.lines() {
+
+        let line_str = line?;
+
+        if line_str.contains("Time:") {
+            boat_race_db.populate_times_like_vector(&line_str);
+        }
+        else if line_str.contains("Distance:") {
+            boat_race_db.populates_distances_like_vector(&line_str);
+        }
+    }
+
+    println!("The result of {:?} of Wait for It is: {}", type_run, boat_race_db.get_number_of_ways());
+
+    Ok(())
 }
