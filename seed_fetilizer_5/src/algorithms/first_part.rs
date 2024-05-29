@@ -1,6 +1,5 @@
 use crate::algorithms::{
-    common::SeedRangeInfo,
-    common::SeedsListType, 
+    common::{SeedRangeInfo, SeedsListType, SeedsAlgorithm},
     error::SeedsDBError};
 use std::cmp::min;
 use std::u64::MAX;
@@ -16,6 +15,8 @@ pub struct SeedsDB {
     temperature_to_humidity: Vec<SeedRangeInfo>,
     humidity_to_location: Vec<SeedRangeInfo>,
 }
+
+impl SeedsAlgorithm for SeedsDB {}
 
 impl SeedsDB {
 
@@ -54,22 +55,7 @@ impl SeedsDB {
             SeedsListType::HumidityToLocation => list_temp = &mut self.humidity_to_location,
         }
 
-        // Get the position ranges to populate the seeds
-        let range: Vec<u64> = data.split_whitespace().map(|num| 
-            num.parse::<u64>()).collect::<Result<Vec<_>, _>>()?;
-        
-        // Populate the map
-        if range.len() == 3 {
-            let temp_range_info :SeedRangeInfo = 
-                SeedRangeInfo::new(range[1], 
-                        range[1] + range[2] -1, 
-                                   range[0]);
-
-            list_temp.push(temp_range_info);
-        }
-        else {
-            return Err(SeedsDBError::ListDataRangeBadSize)
-        }
+        Self::populate_map_based(list_temp, data)?;
         
         Ok(())
     }

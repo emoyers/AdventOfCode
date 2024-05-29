@@ -1,6 +1,5 @@
 use crate::algorithms::{
-    common::SeedRangeInfo,
-    common::SeedsListType, 
+    common::{SeedRangeInfo, SeedsListType, SeedsAlgorithm}, 
     error::SeedsDBError};
 
 use std::u64::MAX;
@@ -15,6 +14,8 @@ pub struct SeedsDBRanges {
     temperature_to_humidity: Vec<SeedRangeInfo>,
     humidity_to_location: Vec<SeedRangeInfo>,
 }
+
+impl SeedsAlgorithm for SeedsDBRanges {}
 
 impl SeedsDBRanges {
     
@@ -63,23 +64,8 @@ impl SeedsDBRanges {
             SeedsListType::HumidityToLocation => list_temp = &mut self.humidity_to_location,
         }
 
-        // Get the position ranges to populate the seeds
-        let range: Vec<u64> = data.split_whitespace().map(|num| 
-            num.parse::<u64>()).collect::<Result<Vec<_>, _>>()?;
-        
-        // Populate the map
-        if range.len() == 3 {
-            let temp_range_info :SeedRangeInfo = 
-                SeedRangeInfo::new(range[1], 
-                        range[1] + range[2] -1, 
-                                   range[0]);
+        Self::populate_map_based(list_temp, data)?;
 
-            list_temp.push(temp_range_info);
-        }
-        else {
-            return Err(SeedsDBError::ListDataRangeBadSize)
-        }
-        
         Ok(())
     }
 
@@ -135,9 +121,9 @@ impl SeedsDBRanges {
         let mut resulting_ranges: Vec<Range> = Vec::new();
 
         let mut current_num = range.start_index;
-        let mut temp_range_info = SeedRangeInfo::new(0, 0, 0);
-        let mut offset_destination = 0;
-        let mut total_number_in_range = 0;
+        let mut temp_range_info: SeedRangeInfo;
+        let mut offset_destination: u64;
+        let mut total_number_in_range: u64;
 
         while current_num < range.end_index {
             temp_range_info = SeedsDBRanges::get_range_info(list_ranges, current_num, range.end_index);
