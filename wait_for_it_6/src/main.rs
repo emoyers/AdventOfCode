@@ -40,6 +40,21 @@
 
 // Determine the number of ways you could beat the record in each race. What do you get if you multiply these numbers together?
 
+// --- Part Two ---
+// As the race is about to start, you realize the piece of paper with race times and record distances you got earlier actually just has very bad kerning. There's really only one race - ignore the spaces between the numbers on each line.
+
+// So, the example from before:
+
+// Time:      7  15   30
+// Distance:  9  40  200
+// ...now instead means this:
+
+// Time:      71530
+// Distance:  940200
+// Now, you have to figure out how many ways there are to win this single race. In this example, the race lasts for 71530 milliseconds and the record distance you need to beat is 940200 millimeters. You could hold the button anywhere from 14 to 71516 milliseconds and beat the record, a total of 71503 ways!
+
+// How many ways can you beat the record in this one much longer race?
+
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
@@ -50,8 +65,8 @@ enum TypeRun {
 }
 
 struct BoatRaceDb {
-    times: Vec<u32>,
-    distances: Vec<u32>,
+    times: Vec<u64>,
+    distances: Vec<u64>,
 }
 
 impl BoatRaceDb {
@@ -67,7 +82,7 @@ impl BoatRaceDb {
     fn populate_times_like_vector(&mut self, times_info_str: &str) {
         let data: Vec<&str> = times_info_str.split(':').collect();
         match data[1].split_whitespace().map(|num| 
-            num.parse::<u32>()).collect::<Result<Vec<_>, _>>() { 
+            num.parse::<u64>()).collect::<Result<Vec<_>, _>>() { 
                 Ok(numbers) => self.times.extend(numbers) ,
                 Err(_) => println!("not able to transform string to times :("),
             
@@ -77,16 +92,38 @@ impl BoatRaceDb {
     fn populates_distances_like_vector(&mut self, distances_info_str: &str) {
         let data: Vec<&str> = distances_info_str.split(':').collect();
         match data[1].split_whitespace().map(|num| 
-            num.parse::<u32>()).collect::<Result<Vec<_>, _>>() { 
+            num.parse::<u64>()).collect::<Result<Vec<_>, _>>() { 
                 Ok(numbers) => self.distances.extend(numbers) ,
                 Err(_) => println!("not able to transform string to distances :("),
             
         }
     }
 
-    fn get_number_of_ways(&self) -> u32 {
+    fn populate_times_single_number(&mut self, times_info_str: &str){
+        let data: Vec<&str> = times_info_str.split(':').collect();        
+        self.times.push(Self::list_num_in_str_to_u64(data[1]));
+    }
 
-        let mut number_of_ways: u32 = 1;
+    fn populate_distances_single_number(&mut self, distances_info_str: &str) {
+        let data: Vec<&str> = distances_info_str.split(':').collect();
+        self.distances.push(Self::list_num_in_str_to_u64(data[1]));
+    }
+
+    fn list_num_in_str_to_u64(numbers_list_str: &str) -> u64 {
+        let numbers_str: Vec<&str> = numbers_list_str.split_whitespace().collect();
+
+        let mut single_num: u64 = 0;
+        for num in numbers_str {
+
+            single_num = single_num *  10u64.pow(num.len().try_into().unwrap()) + num.parse::<u64>().unwrap();
+        }
+
+        single_num
+    }
+    
+    fn get_number_of_ways(&self) -> u64 {
+
+        let mut number_of_ways: u64 = 1;
         
         for (i, time) in self.times.iter().enumerate() {
 
@@ -96,7 +133,7 @@ impl BoatRaceDb {
         number_of_ways
     }
 
-    fn get_margin(time: u32, distance_to_beat: u32) -> u32
+    fn get_margin(time: u64, distance_to_beat: u64) -> u64
     {
         let lower_limit_inclusive = BoatRaceDb::get_lower_limit(time, distance_to_beat);
         let upper_limit_inclusive = BoatRaceDb::get_upper_limit(time,lower_limit_inclusive);
@@ -104,20 +141,20 @@ impl BoatRaceDb {
         upper_limit_inclusive - lower_limit_inclusive 
     }
 
-    fn get_lower_limit(time: u32, distance_to_beat: u32) -> u32 
+    fn get_lower_limit(time: u64, distance_to_beat: u64) -> u64 
     {
         BoatRaceDb::binary_search(0, time, distance_to_beat)
     }
 
-    fn get_upper_limit(time: u32, lower_bound_time:u32) -> u32 
+    fn get_upper_limit(time: u64, lower_bound_time:u64) -> u64 
     {
         time - lower_bound_time + 1
     }
 
-    fn binary_search(mut low_time: u32, mut high_time: u32, target_distance: u32) -> u32 {
+    fn binary_search(mut low_time: u64, mut high_time: u64, target_distance: u64) -> u64 {
 
-        let mut mid_time: u32;
-        let mut distance_calculated: u32;
+        let mut mid_time: u64;
+        let mut distance_calculated: u64;
         let max_time = high_time;
 
         while low_time <= high_time{
@@ -148,13 +185,14 @@ impl BoatRaceDb {
         0
     }
 
-    fn calculate_distance(time_pressed_button:u32, max_time:u32) -> u32{
+    fn calculate_distance(time_pressed_button:u64, max_time:u64) -> u64{
         (max_time - time_pressed_button) * time_pressed_button
     }
 }
 
 fn main () -> std::io::Result<()> {
     algorithm(TypeRun::FirstPart)?;
+    algorithm(TypeRun::SecondPart)?;
 
     Ok(())
 }
@@ -174,10 +212,16 @@ fn algorithm(type_run: TypeRun) -> std::io::Result<()>{
         let line_str = line?;
 
         if line_str.contains("Time:") {
-            boat_race_db.populate_times_like_vector(&line_str);
+            match type_run {
+                TypeRun::FirstPart => boat_race_db.populate_times_like_vector(&line_str),
+                TypeRun::SecondPart => boat_race_db.populate_times_single_number(&line_str),
+            }
         }
         else if line_str.contains("Distance:") {
-            boat_race_db.populates_distances_like_vector(&line_str);
+            match type_run {
+                TypeRun::FirstPart => boat_race_db.populates_distances_like_vector(&line_str),
+                TypeRun::SecondPart => boat_race_db.populate_distances_single_number(&line_str),
+            }
         }
     }
 
