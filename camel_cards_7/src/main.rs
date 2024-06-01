@@ -50,6 +50,71 @@
 
 // Find the rank of every hand in your set. What are the total winnings?
 
-fn main() {
-    println!("Hello, world!");
+use std::fs::File;
+use std::io::{BufRead, BufReader};
+
+#[derive(Debug)]
+enum TypeRun {
+    FirstPart,
+    SecondPart
+}
+
+fn main() -> std::io::Result<()>{
+    algorithm(TypeRun::FirstPart)?;
+
+    Ok(())
+}
+
+fn algorithm(type_run: TypeRun) -> std::io::Result<()> {
+    
+    let file:File = File::open("data/debug.txt")?;
+    let reader: BufReader<File> = BufReader::new(file);
+    let mut hands_list: Vec<HandInfo> = Vec::new();
+
+    for line in reader.lines(){
+        let line_str:String = line?;
+        hands_list.push(HandInfo::new(&line_str));
+    }
+
+    println!("{:?}", hands_list);
+
+    Ok(())
+}
+
+#[derive(Debug)]
+enum HandType {
+    HighCard,
+    OnePair,
+    TwoPair,
+    ThreeOfAKind,
+    FullHouse,
+    FourOfAKind,
+    FiveOfAKind,
+}
+
+#[derive(Debug)]
+struct HandInfo {
+    data: String,
+    value: u16,
+    h_type: HandType,  
+}
+
+impl HandInfo {
+
+    fn new(info_card: &str) -> Self {
+
+        let data:Vec<&str> = info_card.split_whitespace().collect();
+
+        HandInfo {
+            data: data[0].to_string(),
+            value: data[1].parse::<u16>().unwrap_or(0),
+            h_type: Self::get_type_hand(data[0]),
+        }
+    }
+
+    fn get_type_hand(data_card: &str) -> HandType{
+
+        HandType::HighCard
+    }
+    
 }
