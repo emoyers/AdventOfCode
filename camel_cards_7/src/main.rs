@@ -52,6 +52,11 @@
 
 use std::fs::File;
 use std::io::{BufRead, BufReader};
+use std::collections::HashMap;
+use std::cmp::Ordering;
+use crate::data_structures::min_heap::MinHeap;
+
+pub mod data_structures;
 
 #[derive(Debug)]
 enum TypeRun {
@@ -67,21 +72,42 @@ fn main() -> std::io::Result<()>{
 
 fn algorithm(type_run: TypeRun) -> std::io::Result<()> {
     
-    let file:File = File::open("data/debug.txt")?;
+    let file:File = File::open("data/input.txt")?;
     let reader: BufReader<File> = BufReader::new(file);
-    let mut hands_list: Vec<HandInfo> = Vec::new();
+    let mut hands_heap: MinHeap<HandInfo> = MinHeap::new();
 
     for line in reader.lines(){
         let line_str:String = line?;
-        hands_list.push(HandInfo::new(&line_str));
+        hands_heap.push(HandInfo::new(&line_str));
     }
 
-    println!("{:?}", hands_list);
+    println!("The result of {:?} is: {}", type_run, get_camel_card_result(&mut hands_heap));
 
     Ok(())
 }
 
-#[derive(Debug)]
+fn get_camel_card_result(hands_data: &mut MinHeap<HandInfo>) -> u64{
+    let mut result: u64 = 0;
+    let mut multiplier: u64 = 1;
+
+    while !hands_data.empty() {
+
+        match hands_data.peek() {
+            Some(x) => {
+                result += multiplier * x.value as u64;
+                multiplier += 1;
+            },
+            None => println!("not data found on peek! :("),
+        }
+
+        hands_data.pop();
+    }
+
+
+    result
+}
+
+#[derive(PartialEq, Eq, PartialOrd, Clone, Debug)]
 enum HandType {
     HighCard,
     OnePair,
@@ -92,7 +118,7 @@ enum HandType {
     FiveOfAKind,
 }
 
-#[derive(Debug)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 struct HandInfo {
     data: String,
     value: u16,
@@ -114,7 +140,125 @@ impl HandInfo {
 
     fn get_type_hand(data_card: &str) -> HandType{
 
-        HandType::HighCard
+        let mut frequency_chars_map: HashMap<char, u8> = HashMap::new();
+        for c in data_card.chars() {
+            if let Some(x) = frequency_chars_map.get_mut(&c) {
+                *x += 1;
+            }
+            else {
+                frequency_chars_map.insert(c, 1);
+            }
+        }
+
+        // Convert to vector and sort
+        let mut frequency_chars_vec: Vec<(&char, &u8)> = frequency_chars_map.iter().collect();
+        frequency_chars_vec.sort_by(|a, b| b.1.cmp(&a.1));
+
+        let hand_type: HandType;
+        if *frequency_chars_vec[0].1 == 5 {
+            hand_type = HandType::FiveOfAKind;
+        }
+        else if *frequency_chars_vec[0].1 == 4 {
+            hand_type = HandType::FourOfAKind   
+        }
+        else if *frequency_chars_vec[0].1 == 3 {
+            
+            if (frequency_chars_vec.len() > 1) && (*frequency_chars_vec[1].1 == 2) {
+                hand_type = HandType::FullHouse;
+            }
+            else {
+                hand_type = HandType::ThreeOfAKind;
+            }   
+        }
+        else if *frequency_chars_vec[0].1 == 2 {
+            
+            if (frequency_chars_vec.len() > 1) && (*frequency_chars_vec[1].1 == 2) {
+                hand_type = HandType::TwoPair;
+            }
+            else {
+                hand_type = HandType::OnePair;
+            }   
+        }
+        else {
+            hand_type = HandType::HighCard;
+        }
+
+        hand_type
+    }
+
+    fn get_relative_streght(card: char) -> u8{
+
+        let streght: u8;
+        match card {
+            'A' => streght = 14,
+            'K' => streght = 13,
+            'Q' => streght = 12,
+            'J' => streght = 11,
+            'T' => streght = 10,
+            '9' => streght = 9,
+            '8' => streght = 8,
+            '7' => streght = 7,
+            '6' => streght = 6,
+            '5' => streght = 5,
+            '4' => streght = 4,
+            '3' => streght = 3,
+            '2' => streght = 2,
+            _   => streght = 0,  
+        };
+
+        streght
     }
     
+}
+
+impl Ord for HandInfo {
+    fn cmp(&self, other: &Self) -> Ordering {
+        let mut order: Ordering = Ordering::Equal;
+        if self.h_type > other.h_type {
+            order = Ordering::Greater;
+        }
+        else if self.h_type < other.h_type {
+            order = Ordering::Less;
+        }
+        else {
+            let self_data_chars: Vec<char> = self.data.chars().collect();
+            let other_data_chars: Vec<char> = other.data.chars().collect();
+            if self_data_chars.len() == other_data_chars.len(){
+
+                let mut index_to_check: usize = 0;
+                let mut index_found: bool = false;
+
+                for i in 0 .. self_data_chars.len() {
+
+                    if self_data_chars[i] != other_data_chars[i] {
+                        index_found = true;
+                        index_to_check = i;
+                        break;
+                    }
+                }
+
+                if index_found {
+
+                    if HandInfo::get_relative_streght(self_data_chars[index_to_check]) > 
+                        HandInfo::get_relative_streght(other_data_chars[index_to_check]) {
+                        order = Ordering::Greater;
+                    }
+                    else {
+                        order = Ordering::Less;
+                    }
+                }
+                else {
+                    order = Ordering::Equal;
+                }
+            }
+
+        }
+        order
+    }
+}
+
+impl PartialOrd for HandInfo {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
 }
