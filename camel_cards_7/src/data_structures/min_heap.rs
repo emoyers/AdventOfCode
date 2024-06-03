@@ -14,7 +14,7 @@ impl<T: Ord + Clone + Debug> MinHeap<T> {
 
     pub fn push(&mut self, value: T) {
         self.data.push(value);
-        self.bubble_up(self.data.len() - 1);
+        self.heapify_up(self.data.len() - 1);
     }
 
     pub fn pop(&mut self) -> Option<T> {
@@ -23,7 +23,7 @@ impl<T: Ord + Clone + Debug> MinHeap<T> {
         } else {
             let min = self.data.swap_remove(0);
             if !self.data.is_empty() {
-                self.bubble_down(0);
+                self.heapify_down(0);
             }
             Some(min)
         }
@@ -33,11 +33,11 @@ impl<T: Ord + Clone + Debug> MinHeap<T> {
         self.data.is_empty()
     }
 
-    pub fn peek(&self) -> Option<T> {
+    pub fn top(&self) -> Option<T> {
         self.data.get(0).cloned()
     }
 
-    fn bubble_up(&mut self, mut index: usize) {
+    fn heapify_up(&mut self, mut index: usize) {
         while index > 0 {
             let parent = (index - 1) / 2;
             if self.data[parent] <= self.data[index] {
@@ -48,7 +48,7 @@ impl<T: Ord + Clone + Debug> MinHeap<T> {
         }
     }
 
-    fn bubble_down(&mut self, mut index: usize) {
+    fn heapify_down(&mut self, mut index: usize) {
         let len = self.data.len();
         loop {
             let child = 2 * index + 1;

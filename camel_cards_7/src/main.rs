@@ -50,6 +50,27 @@
 
 // Find the rank of every hand in your set. What are the total winnings?
 
+// --- Part Two ---
+// To make things a little more interesting, the Elf introduces one additional rule. Now, J cards are jokers - wildcards that can act like whatever card would make the hand the strongest type possible.
+
+// To balance this, J cards are now the weakest individual cards, weaker even than 2. The other cards stay in the same order: A, K, Q, T, 9, 8, 7, 6, 5, 4, 3, 2, J.
+
+// J cards can pretend to be whatever card is best for the purpose of determining hand type; for example, QJJQ2 is now considered four of a kind. However, for the purpose of breaking ties between two hands of the same type, J is always treated as J, not the card it's pretending to be: JKKK2 is weaker than QQQQ2 because J is weaker than Q.
+
+// Now, the above example goes very differently:
+
+// 32T3K 765
+// T55J5 684
+// KK677 28
+// KTJJT 220
+// QQQJA 483
+// 32T3K is still the only one pair; it doesn't contain any jokers, so its strength doesn't increase.
+// KK677 is now the only two pair, making it the second-weakest hand.
+// T55J5, KTJJT, and QQQJA are now all four of a kind! T55J5 gets rank 3, QQQJA gets rank 4, and KTJJT gets rank 5.
+// With the new joker rule, the total winnings in this example are 5905.
+
+// Using the new joker rule, find the rank of every hand in your set. What are the new total winnings?
+
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::collections::HashMap;
@@ -58,7 +79,7 @@ use crate::data_structures::min_heap::MinHeap;
 
 pub mod data_structures;
 
-#[derive(Debug)]
+#[derive(PartialEq, Debug)]
 enum TypeRun {
     FirstPart,
     SecondPart
@@ -66,6 +87,7 @@ enum TypeRun {
 
 fn main() -> std::io::Result<()>{
     algorithm(TypeRun::FirstPart)?;
+    algorithm(TypeRun::SecondPart)?;
 
     Ok(())
 }
@@ -76,9 +98,11 @@ fn algorithm(type_run: TypeRun) -> std::io::Result<()> {
     let reader: BufReader<File> = BufReader::new(file);
     let mut hands_heap: MinHeap<HandInfo> = MinHeap::new();
 
+    let use_joker: bool = if type_run == TypeRun::FirstPart {false} else {true};
+
     for line in reader.lines(){
         let line_str:String = line?;
-        hands_heap.push(HandInfo::new(&line_str));
+        hands_heap.push(HandInfo::new(&line_str, use_joker));
     }
 
     println!("The result of {:?} is: {}", type_run, get_camel_card_result(&mut hands_heap));
@@ -92,7 +116,7 @@ fn get_camel_card_result(hands_data: &mut MinHeap<HandInfo>) -> u64{
 
     while !hands_data.empty() {
 
-        match hands_data.peek() {
+        match hands_data.top() {
             Some(x) => {
                 result += multiplier * x.value as u64;
                 multiplier += 1;
@@ -122,25 +146,28 @@ enum HandType {
 struct HandInfo {
     data: String,
     value: u16,
-    h_type: HandType,  
+    h_type: HandType,
+    using_joker: bool,
 }
 
 impl HandInfo {
 
-    fn new(info_card: &str) -> Self {
+    fn new(info_card: &str, with_joker: bool) -> Self {
 
         let data:Vec<&str> = info_card.split_whitespace().collect();
 
         HandInfo {
             data: data[0].to_string(),
             value: data[1].parse::<u16>().unwrap_or(0),
-            h_type: Self::get_type_hand(data[0]),
+            h_type: Self::get_type_hand(data[0], with_joker),
+            using_joker: with_joker
         }
     }
 
-    fn get_type_hand(data_card: &str) -> HandType{
+    fn get_type_hand(data_card: &str, with_joker: bool) -> HandType{
 
         let mut frequency_chars_map: HashMap<char, u8> = HashMap::new();
+        let mut number_jokers: u8 = 0;
         for c in data_card.chars() {
             if let Some(x) = frequency_chars_map.get_mut(&c) {
                 *x += 1;
@@ -148,13 +175,15 @@ impl HandInfo {
             else {
                 frequency_chars_map.insert(c, 1);
             }
+
+            if c == 'J' {number_jokers +=1;}
         }
 
         // Convert to vector and sort
         let mut frequency_chars_vec: Vec<(&char, &u8)> = frequency_chars_map.iter().collect();
         frequency_chars_vec.sort_by(|a, b| b.1.cmp(&a.1));
 
-        let hand_type: HandType;
+        let mut hand_type: HandType;
         if *frequency_chars_vec[0].1 == 5 {
             hand_type = HandType::FiveOfAKind;
         }
@@ -183,17 +212,46 @@ impl HandInfo {
             hand_type = HandType::HighCard;
         }
 
+        // Modifying hand type in case there is a joker
+        if with_joker && (number_jokers > 0) {
+
+            if hand_type >= HandType::FullHouse {
+                hand_type = HandType::FiveOfAKind;
+            }
+            else if hand_type == HandType::ThreeOfAKind {
+                if number_jokers < 3 {
+                    hand_type = HandType::FourOfAKind;
+                }
+            }
+            else if hand_type == HandType::TwoPair {
+                if number_jokers == 1 {
+                    hand_type = HandType::FullHouse;
+                }
+                else {
+                    hand_type = HandType::FourOfAKind;
+                }
+            }
+            else if  hand_type == HandType::OnePair {
+                hand_type = HandType::ThreeOfAKind;
+            }
+            else {
+                hand_type = HandType::OnePair;
+            }
+        }
+
         hand_type
     }
 
-    fn get_relative_streght(card: char) -> u8{
+    fn get_relative_streght(card: char, with_joker: bool) -> u8{
 
         let streght: u8;
         match card {
             'A' => streght = 14,
             'K' => streght = 13,
             'Q' => streght = 12,
-            'J' => streght = 11,
+            'J' => {
+                if with_joker {streght = 1;} else {streght = 11;} 
+            },
             'T' => streght = 10,
             '9' => streght = 9,
             '8' => streght = 8,
@@ -239,8 +297,8 @@ impl Ord for HandInfo {
 
                 if index_found {
 
-                    if HandInfo::get_relative_streght(self_data_chars[index_to_check]) > 
-                        HandInfo::get_relative_streght(other_data_chars[index_to_check]) {
+                    if HandInfo::get_relative_streght(self_data_chars[index_to_check], self.using_joker) > 
+                        HandInfo::get_relative_streght(other_data_chars[index_to_check], other.using_joker) {
                         order = Ordering::Greater;
                     }
                     else {
