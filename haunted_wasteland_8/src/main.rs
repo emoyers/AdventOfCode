@@ -29,6 +29,38 @@
 // ZZZ = (ZZZ, ZZZ)
 // Starting at AAA, follow the left/right instructions. How many steps are required to reach ZZZ?
 
+// --- Part Two ---
+// The sandstorm is upon you and you aren't any closer to escaping the wasteland. You had the camel follow the instructions, but you've barely left your starting position. It's going to take significantly more steps to escape!
+
+// What if the map isn't for people - what if the map is for ghosts? Are ghosts even bound by the laws of spacetime? Only one way to find out.
+
+// After examining the maps a bit longer, your attention is drawn to a curious fact: the number of nodes with names ending in A is equal to the number ending in Z! If you were a ghost, you'd probably just start at every node that ends with A and follow all of the paths at the same time until they all simultaneously end up at nodes that end with Z.
+
+// For example:
+
+// LR
+
+// 11A = (11B, XXX)
+// 11B = (XXX, 11Z)
+// 11Z = (11B, XXX)
+// 22A = (22B, XXX)
+// 22B = (22C, 22C)
+// 22C = (22Z, 22Z)
+// 22Z = (22B, 22B)
+// XXX = (XXX, XXX)
+// Here, there are two starting nodes, 11A and 22A (because they both end with A). As you follow each left/right instruction, use that instruction to simultaneously navigate away from both nodes you're currently on. Repeat this process until all of the nodes you're currently on end with Z. (If only some of the nodes you're on end with Z, they act like any other node and you continue as normal.) In this example, you would proceed as follows:
+
+// Step 0: You are at 11A and 22A.
+// Step 1: You choose all of the left paths, leading you to 11B and 22B.
+// Step 2: You choose all of the right paths, leading you to 11Z and 22C.
+// Step 3: You choose all of the left paths, leading you to 11B and 22Z.
+// Step 4: You choose all of the right paths, leading you to 11Z and 22B.
+// Step 5: You choose all of the left paths, leading you to 11B and 22C.
+// Step 6: You choose all of the right paths, leading you to 11Z and 22Z.
+// So, in this example, you end up entirely on nodes that end in Z after 6 steps.
+
+// Simultaneously start on every node that ends with A. How many steps does it take before you're only on nodes that end with Z?
+
 use std::fs::File;
 use std::io::{BufReader, BufRead};
 use std::collections::HashMap;
@@ -68,6 +100,9 @@ fn algorithm(type_run: TypeRun) -> std::io::Result<()> {
         }
     }
 
+    // init the locations and destinations
+    network_data.init_single_location_destination();
+
     let num_steps: u64 = network_data.get_number_steps();
     println!("The number of steps to reach the destination for {:?} is: {}", type_run, num_steps);
 
@@ -76,8 +111,9 @@ fn algorithm(type_run: TypeRun) -> std::io::Result<()> {
 
 #[derive(Debug)]
 struct NetworkData {
-    init_location: String,
-    goal_location: String,
+    init_locations: Vec<String>,
+    goal_locations: Vec<String>,
+    current_locations: Vec<String>,
     directions: Vec<char>,
     network_map: HashMap<String, (String, String)>,
 }
@@ -86,10 +122,20 @@ impl NetworkData {
     
     fn new() -> Self {
         NetworkData{
-            init_location: "AAA".to_string(),
-            goal_location: "ZZZ".to_string(),
+            init_locations: Vec::new(),
+            goal_locations: Vec::new(),
+            current_locations: Vec::new(),
             directions: Vec::new(),
             network_map: HashMap::new(),
+        }
+    }
+
+    fn init_single_location_destination(& mut self) {
+        self.init_locations.push("AAA".to_string());
+        self.goal_locations.push("ZZZ".to_string());
+        
+        for loc in &self.init_locations {
+            self.current_locations.push(loc.clone());
         }
     }
 
@@ -113,22 +159,41 @@ impl NetworkData {
         }
     }
 
-    fn get_number_steps(&self) -> u64{
+    fn get_number_steps(& mut self) -> u64{
         let mut number_steps: u64 = 0;
         let mut directions_index: usize = 0;
-        let mut current_location: &String = &self.init_location;
+        let mut continue_flag: bool = true;
 
-        while current_location != &self.goal_location {
+
+        while continue_flag {
             
-            match self.network_map.get(current_location) {
-                Some(x) => current_location = 
-                    if self.directions[directions_index] == 'L' {&x.0} else {&x.1},
-                None => println!("Not data found for: {current_location}"),
-            }
 
+            for cur_loc in self.current_locations.iter_mut(){
+
+                match self.network_map.get(cur_loc) {
+                    Some(x) => *cur_loc = 
+                        if self.directions[directions_index] == 'L' {x.0.clone()} else {x.1.clone()},
+                    None => println!("Not data found for: {}", cur_loc),
+                }
+
+            }
+            
             directions_index = (directions_index + 1) % self.directions.len();
             number_steps += 1;
+
+            continue_flag = !self.all_locations_reach_destination(); 
         }
         number_steps
+    }
+
+    fn all_locations_reach_destination(&self) -> bool{
+        let mut reach_location : bool = true;
+        for (i, goal_loc) in self.goal_locations.iter().enumerate() {
+            if goal_loc != &self.current_locations[i] {
+                reach_location = false;
+                break;
+            }
+        }
+        reach_location
     }
 }
