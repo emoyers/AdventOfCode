@@ -101,5 +101,47 @@ fn algorithm(type_run: TypeRun) -> std::io::Result<()> {
 }
 
 fn get_next_sequence_number(list_numbers: &Vec<i64>) -> i64 {
-    0
+    
+    let mut lists: Vec<Vec<i64>> = Vec::new();
+    form_the_pyramid_lists(list_numbers, &mut lists);
+
+    let mut result: i64 = 0;
+
+    for i in 0..lists.len() {
+        result += lists[i][lists[i].len()-1];
+    }
+
+    result
+}
+
+fn form_the_pyramid_lists(list_numbers: &Vec<i64>, result_lists: &mut Vec<Vec<i64>>) {
+
+    result_lists.push(list_numbers.clone());
+    let mut current_list: &Vec<i64>;
+    let mut continue_flag: bool = true;
+
+    while continue_flag {
+
+        current_list = &result_lists[result_lists.len()-1];
+        if current_list.len() > 1  {
+            let mut next_list: Vec<i64> = Vec::new();
+            let mut last_number: i64 = 0;
+            let mut new_number: i64;
+            let mut counter: usize = 0;
+            for i in 1..current_list.len() {
+                new_number = current_list[i] - current_list[i-1];
+                next_list.push(new_number);
+
+                if (i==1) || (last_number == new_number) {
+                    counter += 1;
+                }
+
+                last_number = new_number;
+            }
+            result_lists.push(next_list.clone());
+            
+            continue_flag = if counter == next_list.len() {false} else {true};
+        }
+    
+    }
 }
