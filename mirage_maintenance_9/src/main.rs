@@ -62,6 +62,25 @@
 // If you find the next value for each history in this example and add them together, you get 114.
 
 // Analyze your OASIS report and extrapolate the next value for each history. What is the sum of these extrapolated values?
+
+// --- Part Two ---
+// Of course, it would be nice to have even more history included in your report. Surely it's safe to just extrapolate backwards as well, right?
+
+// For each history, repeat the process of finding differences until the sequence of differences is entirely zero. Then, rather than adding a zero to the end and filling in the next values of each previous sequence, you should instead add a zero to the beginning of your sequence of zeroes, then fill in new first values for each previous sequence.
+
+// In particular, here is what the third example history looks like when extrapolating back in time:
+
+// 5  10  13  16  21  30  45
+//   5   3   3   5   9  15
+//    -2   0   2   4   6
+//       2   2   2   2
+//         0   0   0
+// Adding the new values on the left side of each sequence from bottom to top eventually reveals the new left-most history value: 5.
+
+// Doing this for the remaining example data above results in previous values of -3 for the first history and 0 for the second history. Adding all three new values together produces 2.
+
+// Analyze your OASIS report again, this time extrapolating the previous value for each history. What is the sum of these extrapolated values?
+
 use std::fs::File;
 use std::io::{BufReader, BufRead};
 
@@ -92,7 +111,7 @@ fn algorithm(type_run: TypeRun) -> std::io::Result<()> {
                                          .map(|s| s.parse().unwrap())
                                          .collect();
         
-        total_sum += get_next_sequence_number(&numbers);
+        total_sum += get_next_sequence_number(&numbers, &type_run);
     }
 
     println!("The result for part {:?} is {total_sum}", type_run);
@@ -100,7 +119,7 @@ fn algorithm(type_run: TypeRun) -> std::io::Result<()> {
     Ok(())
 }
 
-fn get_next_sequence_number(list_numbers: &Vec<i64>) -> i64 {
+fn get_next_sequence_number(list_numbers: &Vec<i64>, type_run: &TypeRun) -> i64 {
     
     let mut lists: Vec<Vec<i64>> = Vec::new();
     form_the_pyramid_lists(list_numbers, &mut lists);
@@ -108,7 +127,19 @@ fn get_next_sequence_number(list_numbers: &Vec<i64>) -> i64 {
     let mut result: i64 = 0;
 
     for i in 0..lists.len() {
-        result += lists[i][lists[i].len()-1];
+
+        match type_run {
+            TypeRun::FirstPart => result += lists[i][lists[i].len()-1],
+            TypeRun::SecondPart => {
+
+                if i%2 == 0 {
+                    result += lists[i][0];
+                }
+                else {
+                    result -= lists[i][0];
+                }
+            },
+        }
     }
 
     result
