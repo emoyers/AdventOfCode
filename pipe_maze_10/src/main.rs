@@ -94,11 +94,189 @@
 
 use std::fs::File;
 use std::io::{BufReader, BufRead};
+use std::collections::VecDeque;
 
 #[derive(Debug)]
 enum TypeRun {
     FirstPart,
     SecondPart,
+}
+
+#[derive(Debug, Clone)]
+struct Coordinate {
+    x: u16,
+    y: u16,
+}
+
+impl Coordinate {
+    
+    fn new() -> Self {
+        Coordinate {
+            x: 0,
+            y: 0,
+        }
+    }
+
+    fn new_with_vals(_x: u16, _y: u16) -> Self {
+        Coordinate {
+            x: _x,
+            y: _y,
+        }
+    }
+}
+
+struct MapInfo {
+    data: Vec<Vec<char>>,
+    distance_to_start: Vec<Vec<u16>>,
+    start_pose : Coordinate,
+}
+
+impl MapInfo {
+    
+    fn new() -> Self {
+
+        MapInfo {
+            data: Vec::new(),
+            distance_to_start: Vec::new(),
+            start_pose: Coordinate::new(),
+        }
+    }
+
+    fn add_row_to_map(& mut self, row : &String) {
+
+        let chars: Vec<char> = row.chars().collect();
+
+        for (col, c) in chars.iter().enumerate() {
+            if *c == 'S' {
+                self.start_pose.x = col as u16;
+                self.start_pose.y = self.data.len() as u16;
+            }
+        }
+
+        self.distance_to_start.push(vec![u16::MAX; chars.len()]);
+        self.data.push(chars);
+    }
+
+    fn get_furthest_distance_to_start(& mut self) -> u16{
+        let mut max_distance: u16 = 0;
+        let mut q: VecDeque<Coordinate> = VecDeque::new();
+        
+        self.distance_to_start[self.start_pose.y as usize][self.start_pose.x as usize] = 0;
+
+        q.push_back(self.start_pose.clone());
+
+        while !q.is_empty() {
+
+            if let Some(cur_coord) = q.front() {
+                let neighboors: Vec<Coordinate> = self.get_next_coordinates(cur_coord);
+
+                let current_distance = self.distance_to_start[cur_coord.y as usize][cur_coord.x as usize];
+
+                if max_distance < current_distance{
+                    max_distance = current_distance;
+                }
+
+                for neig_coord in neighboors {
+                    if current_distance + 1 < self.distance_to_start[neig_coord.y as usize][neig_coord.x as usize] {
+                        self.distance_to_start[neig_coord.y as usize][neig_coord.x as usize] = current_distance + 1;
+                        
+                        q.push_back(neig_coord);
+
+                    }
+                }
+                
+                q.pop_front();
+            }
+        }
+
+        max_distance
+
+    }
+
+    fn get_coordinates(&self,current_coord: &Coordinate, moves: &Vec<(i8, i8)>)-> Vec<Coordinate> {
+        let mut next_coords: Vec<Coordinate> = Vec::new();
+
+        for (mov_x, mov_y) in moves {
+
+            if *mov_x != 0 {
+
+                if *mov_x == -1 && current_coord.x > 0 {
+
+                    next_coords.push(Coordinate::new_with_vals(current_coord.x-1, current_coord.y));
+                }
+                else if *mov_x == 1 && current_coord.x < (self.data[0].len() - 1) as u16 {
+                    next_coords.push(Coordinate::new_with_vals(current_coord.x+1, current_coord.y));
+                }
+
+            }
+            else {
+                if *mov_y == -1 && current_coord.y > 0 {
+                    next_coords.push(Coordinate::new_with_vals(current_coord.x, current_coord.y-1));
+                }
+                else if *mov_y == 1 && current_coord.y < (self.data.len() - 1) as u16 {
+                    next_coords.push(Coordinate::new_with_vals(current_coord.x, current_coord.y+1));
+                }
+            }
+
+        }
+
+        next_coords
+    }
+
+    fn get_next_coordinates(&self, current_coord: &Coordinate) -> Vec<Coordinate> {
+        let mut next_coords: Vec<Coordinate> = Vec::new();
+        let mut movements: Vec<(i8, i8)> = Vec::new();
+
+        match self.data[current_coord.y as usize][current_coord.x as usize] {
+            'S' => {
+                movements.extend(vec![(0,1),(0,-1),(1,0),(-1,0)]);
+
+
+                // Check if the neighboor of S also connect to back to S
+                let s_neigh_coords = self.get_coordinates(current_coord,&movements);
+                for s_neigh in &s_neigh_coords{
+                    let s_neigh_neigh_coords = self.get_next_coordinates(&s_neigh);
+                    
+                    // Check connection back to S
+                    for s_neigh_neigh in s_neigh_neigh_coords {
+
+                        // If there is connection added to next coordinates
+                        if (s_neigh_neigh.x == current_coord.x) && (s_neigh_neigh.y == current_coord.y) {
+                            next_coords.push(s_neigh.clone());
+                        }
+                    }
+                }
+            },
+            '|' => {
+                movements.extend(vec![(0,1),(0,-1)]);
+                next_coords.extend(self.get_coordinates(current_coord,&movements));
+            },
+            '-' => {
+                movements.extend(vec![(1,0),(-1,0)]);
+                next_coords.extend(self.get_coordinates(current_coord,&movements));
+            },
+            'L' => {
+                movements.extend(vec![(1,0),(0,-1)]);
+                next_coords.extend(self.get_coordinates(current_coord,&movements));
+            },
+            'J' => {
+                movements.extend(vec![(-1,0),(0,-1)]);
+                next_coords.extend(self.get_coordinates(current_coord,&movements));
+            },
+            '7' => {
+                movements.extend(vec![(-1,0),(0,1)]);
+                next_coords.extend(self.get_coordinates(current_coord,&movements));
+            },
+            'F' => {
+                movements.extend(vec![(1,0),(0,1)]);
+                next_coords.extend(self.get_coordinates(current_coord,&movements));
+            },
+            _ => { /* Do nothing */},
+        }
+
+        next_coords
+    }
+
 }
 
 fn main() -> std::io::Result<()> {
@@ -113,11 +291,15 @@ fn algorithm(type_run: TypeRun) -> std::io::Result<()> {
     let file: File = File::open("data/input.txt")?;
     let reader: BufReader<File> = BufReader::new(file);
 
+    let mut map : MapInfo = MapInfo::new();
+
     for line in reader.lines(){
 
         let line_str = line?;
-        println!("{line_str}");
+        map.add_row_to_map(&line_str);
     }
+
+    println!("Farthes point in the loop to the start {} for run {:?}", map.get_furthest_distance_to_start(), type_run);
 
     Ok(())
 }
